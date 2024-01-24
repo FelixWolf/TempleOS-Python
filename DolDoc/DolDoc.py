@@ -48,7 +48,27 @@ class DolDocElementColor(DolDocElement):
     @classmethod
     def fromStream(cls, name, id, stream):
         self = cls(name, id)
-        self.color = stream.read(1)[0]
+        self.color, = stream.read(1)
+        return self
+
+class DolDocElementDitherColor(DolDocElement):
+    colors = [
+        "BLACK", "BLUE", "GREEN", "CYAN", "RED", "PURPLE",
+        "BROWN", "LTGRAY", "DKGRAY", "LTBLUE", "LTGREEN",
+        "LTCYAN", "LTRED", "LTPURPLE", "YELLOW", "WHITE"
+    ]
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.color1 = 0
+        self.color2 = 0
+    
+    def __str__(self):
+        return "{} {}/{}".format(self.name, self.colors[self.color1], self.colors[self.color2])
+    
+    @classmethod
+    def fromStream(cls, name, id, stream):
+        self = cls(name, id)
+        self.color1, self.color2 = stream.read(2)
         return self
 
 class DolDocElementCircle(DolDocElement):
@@ -116,6 +136,7 @@ class DolDocElementFloodFill(DolDocElement):
         return self
 
 class DolDocElementThick(DolDocElement):
+    #Thickness
     sThickness = struct.Struct("<i")
     
     def __init__(self, *args, **kwargs):
@@ -171,14 +192,13 @@ class DolDocElementMesh(DolDocElement):
         return self
 
 class DolDocElementPoint(DolDocElement):
-    #x, y, z(?)
-    sPoint = struct.Struct("<iii")
+    #X, Y
+    sPoint = struct.Struct("<ii")
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.x = 0
         self.y = 0
-        self.z = 0
     
     def __str__(self):
         return "{} ({},{})".format(self.name, self.x, self.y)
@@ -186,12 +206,13 @@ class DolDocElementPoint(DolDocElement):
     @classmethod
     def fromStream(cls, name, id, stream):
         self = cls(name, id)
-        self.x, self.y, self.z = self.sPoint.unpack(
+        self.x, self.y = self.sPoint.unpack(
             stream.read(self.sPoint.size)
         )
         return self
 
 class DolDocElementText(DolDocElement):
+    #X, Y
     sTextHeader = struct.Struct("<ii")
     
     def __init__(self, *args, **kwargs):
@@ -220,6 +241,7 @@ class DolDocElementText(DolDocElement):
 
 
 class DolDocElementBitMap(DolDocElement):
+    #X, Y, Width, Height
     sBitMapHeader = struct.Struct("<iiii")
     
     def __init__(self, *args, **kwargs):
@@ -239,10 +261,7 @@ class DolDocElementBitMap(DolDocElement):
         self.x, self.y, self.width, self.height = self.sBitMapHeader.unpack(
             stream.read(self.sBitMapHeader.size)
         )
-        
-        #TODO: Unpack this further.
-        #It should be a left = pixel >> 4, right = pixel & 0xF
-        self.data = stream.read(self.width*self.height)
+        self.data = list(stream.read(self.width*self.height))
         return self
 
 
@@ -269,36 +288,244 @@ class DolDocElementArrow(DolDocElement):
             )
         return self
 
+class DolDocElementPlanarSymmetry(DolDocElement):
+    #X1, Y1, X2, Y2
+    sPlanarSymmetry = struct.Struct("<iiii")
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.x1 = 0
+        self.y1 = 0
+        self.x2 = 0
+        self.y2 = 0
+    
+    def __str__(self):
+        return "{} ({}, {}), ({}, {})".format(self.name, self.x1, self.y1, self.x2, self.y2)
+    
+    @classmethod
+    def fromStream(cls, name, id, stream):
+        self = cls(name, id)
+        self.x1, self.y1, self.x2, self.y2 = \
+            self.sPlanarSymmetry.unpack(
+                stream.read(self.sPlanarSymmetry.size)
+            )
+        return self
+
+class DolDocElementRect(DolDocElement):
+    #X1, Y1, X2, Y2
+    sRect = struct.Struct("<iiii")
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.x1 = 0
+        self.y1 = 0
+        self.x2 = 0
+        self.y2 = 0
+    
+    def __str__(self):
+        return "{} ({}, {}), ({}, {})".format(self.name, self.x1, self.y1, self.x2, self.y2)
+    
+    @classmethod
+    def fromStream(cls, name, id, stream):
+        self = cls(name, id)
+        self.x1, self.y1, self.x2, self.y2 = \
+            self.sRect.unpack(
+                stream.read(self.sRect.size)
+            )
+        return self
+
+class DolDocElementEllipse(DolDocElement):
+    #X, Y, Width, Height, Angle(Radians)
+    sEllipse = struct.Struct("<iiiid")
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.x = 0
+        self.y = 0
+        self.width = 0
+        self.height = 0
+        self.angle = 0
+    
+    def __str__(self):
+        return "{} ({}, {}):{}W,{}H".format(self.name, self.x, self.y, self.width, self.height)
+    
+    @classmethod
+    def fromStream(cls, name, id, stream):
+        self = cls(name, id)
+        self.x, self.y, self.width, self.height, self.angle = \
+            self.sEllipse.unpack(
+                stream.read(self.sEllipse.size)
+            )
+        return self
+
+class DolDocElementPolygon(DolDocElement):
+    #X, Y, Width, Height, Angle, Sides
+    sPolygon = struct.Struct("<iiiidi")
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.x = 0
+        self.y = 0
+        self.width = 0
+        self.height = 0
+        self.angle = 0
+        self.sides = 0
+    
+    def __str__(self):
+        return "{} ({}, {}):{}W,{}H".format(self.name, self.x, self.y, self.width, self.height)
+    
+    @classmethod
+    def fromStream(cls, name, id, stream):
+        self = cls(name, id)
+        self.x, self.y, self.width, self.height, self.angle, self.sides = \
+            self.sPolygon.unpack(
+                stream.read(self.sPolygon.size)
+            )
+        return self
+
+class DolDocElementPolyLine(DolDocElement):
+    #Count
+    sPolyLineCount = struct.Struct("<i")
+    #X, Y
+    sPolyLinePoint = struct.Struct("<ii")
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.points = []
+    
+    def __str__(self):
+        return "{} {} ({}, {})".format(self.name, len(self.points), *(self.points or [(0,0)])[0])
+    
+    @classmethod
+    def fromStream(cls, name, id, stream):
+        self = cls(name, id)
+        count, = self.sPolyLineCount.unpack(
+            stream.read(self.sPolyLineCount.size)
+        )
+        self.points = [None] * count
+        for i in range(count):
+            self.points[i] = self.sPolyLinePoint.unpack(
+                stream.read(self.sPolyLinePoint.size)
+            )
+        return self
+
+class DolDocElementPolyPt(DolDocElement):
+    #TODO: Implement properly
+    #X, Y, Count
+    sPolyPtHeader = struct.Struct("<iii")
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.points = []
+    
+    def __str__(self):
+        return "{} {} ({}, {})".format(self.name, len(self.points), *(self.points or [(0,0)])[0])
+    
+    @classmethod
+    def fromStream(cls, name, id, stream):
+        self = cls(name, id)
+        self.x, self.y, count = \
+            self.sPolyPtHeader.unpack(
+                stream.read(self.sPolyPtHeader.size)
+            )
+        self.points = []
+        stream.read(count*3)
+        return self
+
+
+class DolDocElementBSpline(DolDocElement):
+    #Count
+    sBSplineCount = struct.Struct("<i")
+    #X, Y, Angle
+    sBSplinePoint = struct.Struct("<iii")
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.points = []
+    
+    def __str__(self):
+        return "{} {}".format(self.name, len(self.points))
+    
+    @classmethod
+    def fromStream(cls, name, id, stream):
+        self = cls(name, id)
+        count, = \
+            self.sBSplineCount.unpack(
+                stream.read(self.sBSplineCount.size)
+            )
+        self.points = [None] * count
+        for i in range(count):
+            self.points[i] =  self.sBSplinePoint.unpack(
+                stream.read(self.sBSplinePoint.size)
+            )
+        return self
+
+
+class DolDocElementTransform(DolDocElement):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+    
+    def __str__(self):
+        return "{}".format(self.name)
+    
+    @classmethod
+    def fromStream(cls, name, id, stream):
+        self = cls(name, id)
+        return self
+
+
+class DolDocElementShift(DolDocElement):
+    #X, Y
+    sShift = struct.Struct("<ii")
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.x = 0
+        self.y = 0
+    
+    def __str__(self):
+        return "{} ({}, {})".format(self.name, self.x, self.y)
+    
+    @classmethod
+    def fromStream(cls, name, id, stream):
+        self = cls(name, id)
+        self.x, self.y = \
+            self.sShift.unpack(
+                stream.read(self.sShift.size)
+            )
+        return self
+
 DolDocTypes = {
     "End": DolDocElementEnd,
     "Color": DolDocElementColor,
+    "DitherColor": DolDocElementDitherColor,
     "Thick": DolDocElementThick,
-    #"PlanarSymmetry": DolDocPlanarSymmetry,
-    #"Transform": DolDocTransform,
+    "PlanarSymmetry": DolDocElementPlanarSymmetry,
+    "Transform": DolDocElementTransform,
     #"Shift": DolDocShift,
-    "Pt": DolDocElementPoint, #FIXME: VERIFY
-    #"PolyPt": DolDocPolyPt,
+    "Pt": DolDocElementPoint,
+    "PolyPt": DolDocElementPolyPt,
     "Line": DolDocElementLine,
-    #"PolyLine": DolDocElementPolyLine,
-    #"Rect": DolDocRect,
+    "PolyLine": DolDocElementPolyLine,
+    "Rect": DolDocElementRect,
     "Circle": DolDocElementCircle,
-    #"Ellipse": DolDocEllipse,
-    #"Polygon": DolDocPolygon,
-    #"BSpline2": DolDocBSpline2,
-    #"BSpline3": DolDocBSpline3,
+    "Ellipse": DolDocElementEllipse,
+    "Polygon": DolDocElementPolygon,
+    "BSpline2": DolDocElementBSpline,
+    "BSpline3": DolDocElementBSpline,
     "FloodFill": DolDocElementFloodFill,
     "BitMap": DolDocElementBitMap,
     "Mesh": DolDocElementMesh,
     "Arrow": DolDocElementArrow,
     "Text": DolDocElementText,
-    #"TextBox": DolDocTextBox
-    #"TextDiamond": DolDocTextDiamond
+    "TextBox": DolDocElementText,
+    "TextDiamond": DolDocElementText,
 }
 
 DolDocMapping = [
     ('End', 'End'),
     ('Color', 'Color'),
-    ('Dither Color', 'Color'),
+    ('Dither Color', 'DitherColor'),
     ('Thick', 'Thick'),
     ('Planar Symmetry', 'PlanarSymmetry'),
     ('Transform On', 'Transform'),
@@ -351,7 +578,7 @@ class DolDocEntry:
                 raise DolDocError("Don't know how to decode {} at {}!".format(cls, stream.tell()))
             
             elm = DolDocTypes[cls].fromStream(name, etype, stream)
-            
+            print(elm)
             self.elements.append(elm)
             if elm.name == "End":
                 break
